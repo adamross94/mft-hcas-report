@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* Define custom variables for fonts and colors */
+:root {
+  --font-sans: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --primary-color: #005EB8;      /* NHS Blue */
+  --secondary-color: #646cff;    /* Link color */
+  --hover-color: #535bf2;        /* Hover color for links */
+  --background-light: #ffffff;   /* Light mode background */
+  --background-dark: #242424;    /* Dark mode background */
+}
+
+/* Global resets and basic styling */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+/* Anchor styles */
+a {
+  font-weight: 500;
+  text-decoration: inherit;
+}
+
+
+
+/* Optional button styling */
+button {
+  border-radius: 8px;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: border-color 0.25s;
+}
+
+button:hover {
+  border-color: var(--secondary-color);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* Light mode adjustments */
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
