@@ -1,136 +1,134 @@
-import React, { useRef, useEffect } from 'react';
-import { Chart } from 'chart.js/auto';
+// src/components/HousingCard.jsx
+import React, { useMemo, useRef } from "react";
+import { CostMetricHeader } from "./CostMetricHeader";
+import { useChartJs } from "../hooks/useChartJs";
+import { getCssVar, fmtPercent, niceMaxPercent, makeEndLabelPlugin } from "../lib/chartHelpers";
 
-/**
- * HousingCard.jsx
- *
- * A React component displaying:
- *   - Year-on-year house price growth for Medway & neighboring areas
- *   - A Chart.js bar chart showing % increases
- *   - Source references
- *
- * We store the chart instance in a ref and destroy it in cleanup
- * to avoid the \"Canvas is already in use\" error.
- *
- * Usage Example:
- *   import HousingCard from './HousingCard';
- *   <HousingCard dataAosDelay=\"100\" />
- */
+export default function HousingCard({ dataAosDelay = "100" }) {
+  const canvasRef = useRef(null);
 
-export default function HousingCard({ dataAosDelay = '100' }) {
-  const housingChartRef = useRef(null);
-  const chartInstanceRef = useRef(null);
+  const rows = useMemo(() => {
+    const nhsBlue = getCssVar("--nhs-blue", "#005EB8");
+    return [
+      { name: "Medway", value: 2.5, colour: nhsBlue },
+      { name: "Thurrock", value: 2.6, colour: "#0072CE" },
+      { name: "Dartford", value: 3.0, colour: "#41B6E6" },
+      { name: "Gravesham", value: 4.4, colour: "#78BE20" },
+    ];
+  }, []);
 
-  useEffect(() => {
-    if (housingChartRef.current) {
-      // Destroy any existing chart instance before creating a new one
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
-      }
+  useChartJs(
+    canvasRef,
+    () => {
+      const values = rows.map((r) => r.value);
+      const xMax = niceMaxPercent(values, { headroom: 1.35, step: 0.5, min: 5 });
 
-      const ctx = housingChartRef.current.getContext('2d');
-      // Year-on-year % changes (Dec 2023 -> Dec 2024) for each region:
-      const yoyChanges = {
-        Medway: 2.5,     // from 289k to 297k
-        Thurrock: 2.6,   // from 318k to 327k
-        Dartford: 3.0,   // from 352k to 362k
-        Gravesham: 4.4,  // from 340k to 355k
-      };
+      const endLabelPlugin = makeEndLabelPlugin({
+        id: "housingEndLabels",
+        formatter: (v) => fmtPercent(v, 1),
+      });
 
-      chartInstanceRef.current = new Chart(ctx, {
-        type: 'bar',
+      return {
+        type: "bar",
         data: {
-          labels: Object.keys(yoyChanges),
+          labels: rows.map((r) => r.name),
           datasets: [
             {
-              label: 'Year-on-Year Price Increase (%)',
-              data: Object.values(yoyChanges),
-              backgroundColor: ['#005EB8', '#0072CE', '#41B6E6', '#78BE20'],
+              label: "YoY Growth (%)",
+              data: values,
+              backgroundColor: rows.map((r) => r.colour),
+              borderRadius: 8,
+              barThickness: 18,
             },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          indexAxis: "y",
+          layout: { padding: 8 },
           scales: {
-            y: {
+            x: {
               beginAtZero: true,
+              max: xMax,
+              grid: { color: "rgba(0,0,0,0.06)" },
               ticks: {
-                // Add a '%' sign to the axis labels
-                callback: (value) => value + '%',
+                callback: (v) => `${Number(v)}%`,
+                color: "#111827",
               },
-              title: {
-                display: true,
-                text: 'YoY Growth (%)',
-              },
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: "#111827" },
             },
           },
           plugins: {
-            legend: {
-              display: false,
-            },
+            legend: { display: false },
             tooltip: {
-              // Show exact % plus text
               callbacks: {
-                label: (context) => `${context.parsed.y}%`,
+                label: (ctx) => `${ctx.label}: ${fmtPercent(ctx.parsed.x, 1)}`,
               },
             },
           },
+          animation: { duration: 450 },
         },
-      });
-    }
-
-    // Cleanup function: destroy the chart on unmount
-    return () => {
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
-      }
-    };
-  }, []);
+        plugins: [endLabelPlugin],
+      };
+    },
+    [rows]
+  );
 
   return (
-    <div
+    <article
       data-aos="fade-up"
       data-aos-delay={dataAosDelay}
-      className="bg-gray-50 rounded-lg p-6 shadow-md"
+      className="rounded-2xl border border-white/60 bg-white/70 p-6 shadow-sm backdrop-blur flex flex-col h-full"
     >
-      <h3 className="text-xl font-semibold mb-2">🏠 Housing</h3>
+      <CostMetricHeader
+        icon="🏠"
+        label="HOUSING YoY growth (to Dec 2024)"
+        value="+2.5%"
+        detail="Close to Thurrock (+2.6%); tracks Dartford/Gravesham trend"
+      />
+
+      <div className="flex flex-wrap gap-2 mb-3 text-xs font-semibold">
+        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 text-green-800 border border-green-200 px-2.5 py-0.5">
+          Gap vs fringe avg: -0.8pp
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5">
+          Fringe comparators
+        </span>
+      </div>
+
+      <h3 className="sr-only">Housing</h3>
+
       <p className="text-base text-gray-700">
-        In the year to December 2024, <strong>Medway's average house price rose by 2.5%</strong>, which is comparable to or only slightly below neighboring “fringe” areas Thurrock (2.6%), Dartford (3.0%), and Gravesham (4.4%).
+        <strong>Medway&apos;s average house price rose by 2.5% to Dec 2024</strong>, closely tracking
+        fringe comparators (Thurrock 2.6%, Dartford 3.0%, Gravesham 4.4%).
+      </p>
+      <p className="text-base text-gray-700 mt-3">
+        Staff face the same housing inflation trend even though Medway is not paid as a fringe trust.
       </p>
 
-      <p className="text-base text-gray-700 mt-4">
-        Though Medway's overall house price is somewhat lower in absolute terms, the <strong>similarity in growth trends</strong> supports its alignment with fringe areas currently receiving the NHS High Cost Area Supplement (HCAS).
-      </p>
-
-      <p className="text-base text-gray-700 mt-4">
-        By property type, Medway's year-on-year increases ranged from +1.9% for detached homes to +2.7% for terraced houses and flats. These figures echo the growth seen in Dartford (+3.6% for flats), Thurrock (+3.0% for terraced), and Gravesham (+5.3% for terraced).
-      </p>
-
-      <div className="mt-6" style={{ height: '300px' }}>
-        <canvas ref={housingChartRef}></canvas>
+      <div className="mt-6 relative h-[300px]">
+        <canvas ref={canvasRef} className="h-full w-full" role="img" aria-label="Year-on-year house price growth by area (%)" />
       </div>
 
       <p className="text-sm text-gray-500 mt-4">
-        Sources:{' '}
-        <a
-          className="text-blue-600 hover:underline"
-          href="https://www.kent.gov.uk"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        Period: HPI to Dec-2024. Sources:{" "}
+        <a className="text-blue-600 hover:underline" href="https://www.kent.gov.uk" target="_blank" rel="noreferrer">
           kent.gov.uk
-        </a>
-        ,{' '}
+        </a>{" "}
+        ·{" "}
         <a
           className="text-blue-600 hover:underline"
-          href="https://cy.ons.gov.uk"
+          href="https://www.gov.uk/government/collections/uk-house-price-index-reports"
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noreferrer"
         >
-          cy.ons.gov.uk
+          UK HPI (ONS/Land Registry)
         </a>
       </p>
-    </div>
+    </article>
   );
 }

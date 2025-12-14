@@ -1,118 +1,115 @@
-import React, { useRef, useEffect } from 'react';
-import { Chart } from 'chart.js/auto';
+// src/components/TransportCard.jsx
+import React, { useMemo, useRef } from "react";
+import { CostMetricHeader } from "./CostMetricHeader";
+import { useChartJs } from "../hooks/useChartJs";
+import { getCssVar, fmtGBP, niceBoundsGBP, makeEndLabelPlugin } from "../lib/chartHelpers";
 
-export default function TransportCard({ dataAosDelay = '300' }) {
-  const transportChartRef = useRef(null);
-  const chartInstanceRef = useRef(null);
+export default function TransportCard({ dataAosDelay = "300" }) {
+  const canvasRef = useRef(null);
 
-  useEffect(() => {
-    if (transportChartRef.current) {
-      // Destroy any existing chart instance before creating a new one
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
-      }
+  const routes = useMemo(() => {
+    const nhsBlue = getCssVar("--nhs-blue", "#005EB8");
+    return [
+      { name: "Gillingham (SE)", value: 6784, colour: nhsBlue },
+      { name: "Dartford (SE)", value: 6124, colour: "#41B6E6" },
+      { name: "Gravesend (SE/HS1)", value: 6124, colour: "#78BE20" },
+      { name: "East Tilbury (c2c)", value: 3724, colour: "#0072CE" },
+    ];
+  }, []);
 
-      const ctx = transportChartRef.current.getContext('2d');
-      // Annual season ticket costs (2025) by region
-      const annualFares = {
-        Gillingham: 6784, // cost per day: ~£26.11
-        'East Tilbury': 3724, // cost per day: ~£14.33
-        Dartford: 6124, // cost per day: ~£23.57
-        Gravesend: 6124, // cost per day: ~£23.57
-      };
+  useChartJs(
+    canvasRef,
+    () => {
+      const values = routes.map((r) => r.value);
+      const { min, max } = niceBoundsGBP(values, { pad: 300, step: 250 });
 
-      chartInstanceRef.current = new Chart(ctx, {
-        type: 'bar',
+      const endLabelPlugin = makeEndLabelPlugin({
+        id: "transportEndLabels",
+        formatter: (v) => fmtGBP(v),
+      });
+
+      return {
+        type: "bar",
         data: {
-          labels: Object.keys(annualFares),
+          labels: routes.map((r) => r.name),
           datasets: [
             {
-              label: 'Annual Season Ticket (£)',
-              data: Object.values(annualFares),
-              backgroundColor: ['#005EB8', '#0072CE', '#41B6E6', '#78BE20'],
+              label: "Annual Season Cost (£)",
+              data: values,
+              backgroundColor: routes.map((r) => r.colour),
+              borderRadius: 8,
+              barThickness: 18,
             },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          indexAxis: "y",
+          layout: { padding: 8 },
           scales: {
-            y: {
-              beginAtZero: true,
+            x: {
+              min,
+              max,
+              grid: { color: "rgba(0,0,0,0.06)" },
               ticks: {
-                callback: (value) => '£' + value.toLocaleString(),
+                callback: (v) => fmtGBP(v),
+                color: "#111827",
               },
-              title: {
-                display: true,
-                text: 'Annual Season Cost (£)',
-              },
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: "#111827" },
             },
           },
           plugins: {
-            legend: {
-              display: false,
-            },
+            legend: { display: false },
             tooltip: {
               callbacks: {
-                label: (context) => '£' + context.parsed.y.toLocaleString(),
+                label: (ctx) => `${ctx.label}: ${fmtGBP(ctx.parsed.x)}`,
               },
             },
           },
+          animation: { duration: 450 },
         },
-      });
-    }
-
-    // Cleanup function: destroy the chart on unmount
-    return () => {
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
-      }
-    };
-  }, []);
+        plugins: [endLabelPlugin],
+      };
+    },
+    [routes]
+  );
 
   return (
-    <div
+    <article
       data-aos="fade-up"
       data-aos-delay={dataAosDelay}
-      className="bg-gray-50 rounded-lg p-6 shadow-md"
+      className="rounded-2xl border border-white/60 bg-white/70 p-6 shadow-sm backdrop-blur flex flex-col h-full"
     >
-      <h3 className="text-xl font-semibold mb-2">🚆 Transport Expenses</h3>
-      <p className="text-base text-gray-700">
-        As of 2025, a standard annual season ticket from Gillingham (Kent) to London Terminals costs around <strong>£6,784</strong> (about £26.11/day),
-        significantly higher than East Tilbury’s £3,724 (~£14.33/day). Dartford and Gravesend fares both cost £6,124 (~£23.57/day).
-      </p>
-      <p className="text-base text-gray-700 mt-4">
-        <strong>Monthly passes</strong> are also available:
-      </p>
-      <ul className="list-disc list-inside text-gray-700">
-        <li><strong>Gillingham:</strong> £651.30 (~£30.08/day)</li>
-        <li><strong>East Tilbury:</strong> £357.60 (~£16.52/day)</li>
-        <li><strong>Dartford:</strong> £588 (~£27.16/day)</li>
-        <li><strong>Gravesend:</strong> £588 (~£27.16/day)</li>
-      </ul>
+      <CostMetricHeader icon="🚆" label="SEASON ticket (SE→London, 2025)" value="£6,784" detail="Gillingham to London Terminals — above Dartford/Gravesend, c2c" />
 
-      <p className="text-base text-gray-700 mt-4">
-        These commuting costs often rival or exceed those for other fringe locales closer to London. Notably, Southeastern High Speed routes (valid
-        for Gillingham and Gravesend) raise ticket prices further, underscoring the extra burden on Medway-based staff compared to certain Essex or
-        Kent locations already considered fringe.
-      </p>
-
-      <div className="mt-6" style={{ height: '300px' }}>
-        <canvas ref={transportChartRef}></canvas>
+      <div className="flex flex-wrap gap-2 mb-3 text-xs font-semibold">
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5">
+          Gap vs fringe avg: +£1.46k
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5">
+          Fringe comparators
+        </span>
       </div>
 
-      <p className="text-sm text-gray-500 mt-4">
-        Sources:{' '}
-        <a
-          className="text-blue-600 hover:underline"
-          href="https://kentonline.co.uk"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          kentonline.co.uk
-        </a>,{' '}
-        Southeastern Fare Data
+      <h3 className="sr-only">Transport Expenses</h3>
+
+      <p className="text-base text-gray-700">
+        <strong>Annual season ticket from Gillingham (SE) to London Terminals is £6,784</strong>, above Dartford/Gravesend (~£6,124) and East
+        Tilbury (c2c ~£3,724).
       </p>
-    </div>
+      <p className="text-base text-gray-700 mt-3">
+        High commuting costs cut take-home competitiveness for Medway staff versus some fringe and Essex routes.
+      </p>
+
+      <div className="mt-6 relative h-[300px]">
+        <canvas ref={canvasRef} className="h-full w-full" role="img" aria-label="Annual rail season ticket cost comparison (£)" />
+      </div>
+
+      <p className="text-sm text-gray-500 mt-4">Period/prices: 2025 standard annual seasons. Sources: Southeastern · c2c · Kent Online.</p>
+    </article>
   );
 }
